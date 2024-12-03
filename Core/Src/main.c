@@ -117,6 +117,19 @@ static void reportfunc (osjob_t* j) {
 }
 
 
+// counter
+static int cnt = 0;
+static osjob_t hellojob;
+static void hellofunc (osjob_t* j) {
+	// say hello
+	debug_str("Hello World!\r\n");
+	// log counter
+	debug_val("cnt = ", cnt);
+	// toggle LED
+	debug_led (++cnt & 1);
+	// reschedule job every second
+	os_setTimedCallback(j, os_getTime()+sec2osticks(1), hellofunc);
+}
 
 //////////////////////////////////////////////////
 // LMIC EVENT CALLBACK
@@ -228,7 +241,7 @@ int main(void)
   // initialize debug library
   debug_init();
   // setup initial job
-  os_setCallback(&initjob, initfunc);
+  os_setCallback(&hellojob, hellofunc);
   // execute scheduled jobs and events
   os_runloop();
   // (not reached)
