@@ -53,11 +53,13 @@
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 // application router ID (LSBF) < ------- IMPORTANT
-static const u1_t APPEUI[8] = {  };//IMPORT FROM TTN
+static const u1_t APPEUI[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };//IMPORT FROM TTN
+
 // unique device ID (LSBF) < ------- IMPORTANT
-static const u1_t DEVEUI[8] = {  };//CREATE RANDOM NUMBER
+static const u1_t DEVEUI[8] = { 0x7F, 0xCB, 0x06, 0xD0, 0x7E, 0xD5, 0xB3, 0x70 };//CREATE RANDOM NUMBER
+
 // device-specific AES key (derived from device EUI (MSBF))
-static const u1_t DEVKEY[16] = {  };//IMPORT FROM TTN
+static const u1_t DEVKEY[16] = { 0x70, 0xB3, 0xD5, 0x7E, 0xD0, 0x06, 0xCB, 0x7F };//IMPORT FROM TTN
 
 
 //APPEUI,DEVEUI must be copied from thethingsnetwork application datas in LSB format
@@ -109,7 +111,7 @@ static void reportfunc (osjob_t* j) {
 	u2_t val = readsensor();
 	debug_val("val = ", val);
 	// prepare and schedule data for transmission
-	LMIC.frame[0] = val << 8;
+	LMIC.frame[0] = val << 8;//pas dans le mm sens que sur le diapo
 	LMIC.frame[1] = val;
 	LMIC_setTxData2(1, LMIC.frame, 2, 0); // (port 1, 2 bytes, unconfirmed)
 	// reschedule job in 60 seconds
@@ -128,8 +130,19 @@ static void hellofunc (osjob_t* j) {
 	// toggle LED
 	debug_led (++cnt & 1);
 	// reschedule job every second
-	os_setTimedCallback(j, os_getTime()+sec2osticks(1), hellofunc);
+	os_setTimedCallback(j, os_getTime()+sec2osticks(1), hellofunc);//TODO : Demander à Bernier
 }
+
+static osjob_t blinkjob;
+static u1_t ledstate = 0;
+static void blinkfunc (osjob_t* j) {
+// toggle LED
+ledstate = !ledstate;
+debug_led (ledstate);
+// reschedule blink job
+os_setTimedCallback(j, os_getTime()+ms2osticks(100), blinkfunc);
+}
+
 
 //////////////////////////////////////////////////
 // LMIC EVENT CALLBACK
@@ -143,7 +156,11 @@ void onEvent (ev_t ev) {
 			break;
 		case EV_JOINED:
 			// kick-off periodic sensor job
+			debug_str("Joined\r\n");
 			reportfunc(&reportjob);
+
+			//os_clearCallback(&blinkjob);
+			//debug_led (1);
 			break;
 		case EV_JOIN_FAILED:
 			debug_str("join failed\r\n");
@@ -197,6 +214,8 @@ void onEvent (ev_t ev) {
 			break;
 	}
 }
+
+
 /* USER CODE END 0 */
 
 /**
@@ -241,7 +260,8 @@ int main(void)
   // initialize debug library
   debug_init();
   // setup initial job
-  os_setCallback(&hellojob, hellofunc);
+  //os_setCallback(&hellojob, hellofunc);   //slide 56 and 57
+  os_setCallback(&initjob, initfunc);
   // execute scheduled jobs and events
   os_runloop();
   // (not reached)
