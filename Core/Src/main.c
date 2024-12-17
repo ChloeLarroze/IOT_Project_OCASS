@@ -52,14 +52,18 @@
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+
 // application router ID (LSBF) < ------- IMPORTANT
-static const u1_t APPEUI[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };//IMPORT FROM TTN
+static const u1_t APPEUI[8] = {0x26, 0x41, 0x85, 0x75, 0x47, 0x65, 0x32, 0x72};
+//old { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };//IMPORT FROM TTN
 
 // unique device ID (LSBF) < ------- IMPORTANT
-static const u1_t DEVEUI[8] = { 0x7F, 0xCB, 0x06, 0xD0, 0x7E, 0xD5, 0xB3, 0x70 };//CREATE RANDOM NUMBER
+static const u1_t DEVEUI[8] = {0xAC, 0xCE, 0x06, 0xD0, 0x7E, 0xD5, 0xB3, 0x70};
+//old { 0x7F, 0xCB, 0x06, 0xD0, 0x7E, 0xD5, 0xB3, 0x70 };//CREATE RANDOM NUMBER
 
 // device-specific AES key (derived from device EUI (MSBF))
-static const u1_t DEVKEY[16] = { 0x70, 0xB3, 0xD5, 0x7E, 0xD0, 0x06, 0xCB, 0x7F };//IMPORT FROM TTN
+static const u1_t DEVKEY[16] = {0x4D, 0x55, 0xCE, 0x1B, 0x4D, 0x7F, 0x01, 0x3B, 0x8A, 0x98, 0x6F, 0xDB, 0x04, 0x24, 0x8D, 0xD1};
+//old { 0x25, 0x00, 0x7B, 0x76, 0x3D, 0x5C, 0xD4, 0x28, 0x3D, 0xA6, 0x0B, 0x9A, 0xDA, 0x61, 0x48, 0x7E };//IMPORT FROM TTN
 
 
 //APPEUI,DEVEUI must be copied from thethingsnetwork application datas in LSB format
@@ -99,6 +103,46 @@ void initfunc (osjob_t* j) {
 	LMIC_startJoining();
 	// init done - onEvent() callback will be invoked...
 }
+
+uint32_t get_ADC_value(ADC_HandleTypeDef hadc1, uint32_t channel)
+{
+	uint32_t adc_val = 0;
+	HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, 100);
+	adc_val = HAL_ADC_GetValue(&hadc1);
+	return adc_val;
+}
+float GET_temperature(uint32_t ADC_value, double VDD){
+	float TEMP_value = 0.0;
+	float voltage = 0.0;
+	// ADC value conversion into the corresponding voltage in Volts
+	// voltage = (ADC_value*VDD) /4095.0; // Float => Volts
+	voltage = (ADC_value*VDD)/4095; // Int => Volts
+	// Temperature computing in °C
+	// TEMP_value = ( (50.0-(-10.0))/(0.760-1.088)) *(voltage-1.088) *(voltage-1.088)+(-10.0) ;
+	TEMP_value = (1034-voltage)/5.48;
+	return TEMP_value;
+}
+float readtemperaturesensor(){
+	//Il faut alimenter le capteur
+
+	HAL_GPIO_WritePin(Alim_temp_GPIO_Port, Alim_temp_Pin, GPIO_PIN_SET);
+	HAL_Delay(100);
+	uint value = 0xDF; /// read from evrything ...make your own sensor
+	HAL_ADC_Start(&hadc1);
+	value = get_ADC_value(hadc1, ADC_CHANNEL_15);
+	debug_str("Brut value:\n");
+	debug_uint(value);
+	debug_str("\r\n");
+	float temperature_sensor_value = GET_temperature(value, 3300);
+	debug_valfloat("Temperature sensor value = ", temperature_sensor_value, 6);//6 doit etre le nbr de chiffres après la ,
+	//On éteint le capteur
+	HAL_GPIO_WritePin(Alim_temp_GPIO_Port, Alim_temp_Pin, GPIO_PIN_RESET);
+	return temperature_sensor_value;
+}
+
+
 u2_t readsensor(){
 	u2_t value = 0xDF; /// read from evrything ...make your own sensor
 	return value;
@@ -108,14 +152,19 @@ static osjob_t reportjob;
 // report sensor value every minute
 static void reportfunc (osjob_t* j) {
 	// read sensor
-	u2_t val = readsensor();
-	debug_val("val = ", val);
+	debug_str("Read Temperature Sensor\n");
+	float valuereport = readtemperaturesensor();
+	debug_valfloat("val = ", valuereport, 6);
 	// prepare and schedule data for transmission
-	LMIC.frame[0] = val << 8;//pas dans le mm sens que sur le diapo
-	LMIC.frame[1] = val;
-	LMIC_setTxData2(1, LMIC.frame, 2, 0); // (port 1, 2 bytes, unconfirmed)
+	/*LMIC.frame[0] = 0;//val << 8;//pas dans le mm sens que sur le diapo
+	LMIC.frame[1] = 0x67;//val;
+	valuereport = valuereport/100;
+	LMIC.frame[2] = valuereport>>8;
+	LMIC.frame[3] = valuereport;
+	LMIC_setTxData2(1, LMIC.frame, 2, 0);*/
+	// (port 1, 2 bytes, unconfirmed)
 	// reschedule job in 60 seconds
-	os_setTimedCallback(j, os_getTime()+sec2osticks(15), reportfunc);
+	os_setTimedCallback(j, os_getTime()+sec2osticks(10), reportfunc);
 }
 
 
@@ -140,7 +189,7 @@ static void blinkfunc (osjob_t* j) {
 ledstate = !ledstate;
 debug_led (ledstate);
 // reschedule blink job
-os_setTimedCallback(j, os_getTime()+ms2osticks(100), blinkfunc);
+os_setTimedCallback(j, os_getTime()+ms2osticks(1000), blinkfunc);
 }
 
 
@@ -153,14 +202,14 @@ void onEvent (ev_t ev) {
 	// network joined, session established
 		case EV_JOINING:
 			debug_str("try joining\r\n");
+			blinkfunc(&blinkjob);
 			break;
 		case EV_JOINED:
 			// kick-off periodic sensor job
 			debug_str("Joined\r\n");
+			os_clearCallback(&blinkjob);
+			debug_led (1);
 			reportfunc(&reportjob);
-
-			//os_clearCallback(&blinkjob);
-			//debug_led (1);
 			break;
 		case EV_JOIN_FAILED:
 			debug_str("join failed\r\n");
@@ -261,7 +310,8 @@ int main(void)
   debug_init();
   // setup initial job
   //os_setCallback(&hellojob, hellofunc);   //slide 56 and 57
-  os_setCallback(&initjob, initfunc);
+  os_setCallback(&initjob, initfunc);//Pour tester le capteur de temp on rajoute
+  //os_setCallback(&reportjob, reportfunc);
   // execute scheduled jobs and events
   os_runloop();
   // (not reached)
@@ -270,7 +320,7 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
+  while (1)//On y rentre jamais
   {
     /* USER CODE END WHILE */
 
@@ -295,23 +345,16 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
-  /** Configure LSE Drive Capability
-  */
-  HAL_PWR_EnableBkUpAccess();
-  __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
-
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSE|RCC_OSCILLATORTYPE_MSI;
-  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
-  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
-  RCC_OscInitStruct.MSICalibrationValue = 0;
-  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 8;
+  RCC_OscInitStruct.PLL.PLLN = 10;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
@@ -329,14 +372,10 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
   {
     Error_Handler();
   }
-
-  /** Enable MSI Auto calibration
-  */
-  HAL_RCCEx_EnableMSIPLLMode();
 }
 
 /* USER CODE BEGIN 4 */

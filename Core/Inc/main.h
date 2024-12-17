@@ -69,8 +69,10 @@ void Error_Handler(void);
 #define NSS_GPIO_Port GPIOA
 #define DIO0_Pin GPIO_PIN_6
 #define DIO0_GPIO_Port GPIOB
+#define DIO0_EXTI_IRQn EXTI9_5_IRQn
 #define DIO1_Pin GPIO_PIN_7
 #define DIO1_GPIO_Port GPIOB
+#define DIO1_EXTI_IRQn EXTI9_5_IRQn
 
 /* USER CODE BEGIN Private defines */
 
