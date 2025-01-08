@@ -36,7 +36,7 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Core/Inc/usart.h ../Core/Inc/gpio.h ../Core/Inc/debug.h \
  ../Core/Inc/oslmic.h ../Core/Inc/hal.h ../Core/Inc/hal.h \
  ../Core/Inc/lmic.h ../Core/Inc/lorabase.h ../Core/Inc/lorabase.h \
- ../Core/Inc/oslmic.h
+ ../Core/Inc/oslmic.h ../Core/Inc/cayenne_lpp.h
 ../Core/Inc/main.h:
 ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal.h:
 ../Core/Inc/stm32l4xx_hal_conf.h:
@@ -85,3 +85,4 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Core/Inc/lorabase.h:
 ../Core/Inc/lorabase.h:
 ../Core/Inc/oslmic.h:
+../Core/Inc/cayenne_lpp.h:

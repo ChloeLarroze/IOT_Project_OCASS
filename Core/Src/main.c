@@ -31,6 +31,8 @@
 #include "lmic.h"
 #include "lorabase.h"
 #include "oslmic.h"
+#include "cayenne_lpp.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -119,6 +121,9 @@ float GET_temperature(uint32_t ADC_value, double VDD){
 	// ADC value conversion into the corresponding voltage in Volts
 	// voltage = (ADC_value*VDD) /4095.0; // Float => Volts
 	voltage = (ADC_value*VDD)/4095; // Int => Volts
+	debug_int(voltage);
+	debug_str("\r\n");
+
 	// Temperature computing in °C
 	// TEMP_value = ( (50.0-(-10.0))/(0.760-1.088)) *(voltage-1.088) *(voltage-1.088)+(-10.0) ;
 	TEMP_value = (1034-voltage)/5.48;
@@ -133,7 +138,7 @@ float readtemperaturesensor(){
 	HAL_ADC_Start(&hadc1);
 	value = get_ADC_value(hadc1, ADC_CHANNEL_15);
 	debug_str("Brut value:\n");
-	debug_uint(value);
+	debug_int(value);
 	debug_str("\r\n");
 	float temperature_sensor_value = GET_temperature(value, 3300);
 	debug_valfloat("Temperature sensor value = ", temperature_sensor_value, 6);//6 doit etre le nbr de chiffres après la ,
@@ -151,11 +156,18 @@ u2_t readsensor(){
 static osjob_t reportjob;
 // report sensor value every minute
 static void reportfunc (osjob_t* j) {
+	cayenne_lpp_t lpp = {0};
+
 	// read sensor
 	debug_str("Read Temperature Sensor\n");
 	float valuereport = readtemperaturesensor();
 	debug_valfloat("val = ", valuereport, 6);
 	// prepare and schedule data for transmission
+	cayenne_lpp_reset(&lpp);
+	cayenne_lpp_add_temperature(&lpp, 0, valuereport);
+
+	LMIC_setTxData2(1, LMIC.frame, 4, 0);
+
 	/*LMIC.frame[0] = 0;//val << 8;//pas dans le mm sens que sur le diapo
 	LMIC.frame[1] = 0x67;//val;
 	valuereport = valuereport/100;
@@ -164,7 +176,7 @@ static void reportfunc (osjob_t* j) {
 	LMIC_setTxData2(1, LMIC.frame, 2, 0);*/
 	// (port 1, 2 bytes, unconfirmed)
 	// reschedule job in 60 seconds
-	os_setTimedCallback(j, os_getTime()+sec2osticks(10), reportfunc);
+	os_setTimedCallback(j, os_getTime()+sec2osticks(2), reportfunc);
 }
 
 
