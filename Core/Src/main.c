@@ -94,6 +94,7 @@ void os_getDevKey (u1_t* buf) {
 }
 void initsensor(){
 // Here you init your sensors
+	HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
 }
 
 void initfunc (osjob_t* j) {
@@ -166,7 +167,7 @@ static void reportfunc (osjob_t* j) {
 	cayenne_lpp_reset(&lpp);
 	cayenne_lpp_add_temperature(&lpp, 0, valuereport);
 
-	LMIC_setTxData2(1, LMIC.frame, 4, 0);
+	LMIC_setTxData2(1, &lpp, 4, 0);
 
 	/*LMIC.frame[0] = 0;//val << 8;//pas dans le mm sens que sur le diapo
 	LMIC.frame[1] = 0x67;//val;
