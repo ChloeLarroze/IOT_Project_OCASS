@@ -177,7 +177,7 @@ static void reportfunc (osjob_t* j) {
 	LMIC_setTxData2(1, LMIC.frame, 2, 0);*/
 	// (port 1, 2 bytes, unconfirmed)
 	// reschedule job in 60 seconds
-	os_setTimedCallback(j, os_getTime()+sec2osticks(2), reportfunc);
+	os_setTimedCallback(j, os_getTime()+sec2osticks(15), reportfunc);
 }
 
 
