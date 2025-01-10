@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "adc.h"
+#include "i2c.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
@@ -32,6 +33,8 @@
 #include "lorabase.h"
 #include "oslmic.h"
 #include "cayenne_lpp.h"
+#include <bme680/bme68x_necessary_functions.h>
+
 
 /* USER CODE END Includes */
 
@@ -66,6 +69,7 @@ static const u1_t DEVEUI[8] = {0xAC, 0xCE, 0x06, 0xD0, 0x7E, 0xD5, 0xB3, 0x70};
 // device-specific AES key (derived from device EUI (MSBF))
 static const u1_t DEVKEY[16] = {0x4D, 0x55, 0xCE, 0x1B, 0x4D, 0x7F, 0x01, 0x3B, 0x8A, 0x98, 0x6F, 0xDB, 0x04, 0x24, 0x8D, 0xD1};
 //old { 0x25, 0x00, 0x7B, 0x76, 0x3D, 0x5C, 0xD4, 0x28, 0x3D, 0xA6, 0x0B, 0x9A, 0xDA, 0x61, 0x48, 0x7E };//IMPORT FROM TTN
+struct bme68x_data data;
 
 
 //APPEUI,DEVEUI must be copied from thethingsnetwork application datas in LSB format
@@ -95,6 +99,7 @@ void os_getDevKey (u1_t* buf) {
 void initsensor(){
 // Here you init your sensors
 	HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+	bme68x_start(&data, &hi2c1);//On start le bosch sensor
 }
 
 void initfunc (osjob_t* j) {
@@ -120,8 +125,7 @@ float GET_temperature(uint32_t ADC_value, double VDD){
 	float TEMP_value = 0.0;
 	float voltage = 0.0;
 	// ADC value conversion into the corresponding voltage in Volts
-	// voltage = (ADC_value*VDD) /4095.0; // Float => Volts
-	voltage = (ADC_value*VDD)/4095; // Int => Volts
+	voltage = (ADC_value*VDD) /4095.0; // Float => Volts
 	debug_int(voltage);
 	debug_str("\r\n");
 
@@ -130,6 +134,42 @@ float GET_temperature(uint32_t ADC_value, double VDD){
 	TEMP_value = (1034-voltage)/5.48;
 	return TEMP_value;
 }
+
+float readBoschsensor(){
+	//Il faut alimenter le capteur
+
+	HAL_GPIO_WritePin(Alim_temp_GPIO_Port, Alim_temp_Pin, GPIO_PIN_SET);
+	HAL_Delay(100);
+
+	if (bme68x_single_measure(&data) == 0) {
+
+			// Measurement is successful, so continue with IAQ
+			data.iaq_score = bme68x_iaq(); // Calculate IAQ
+
+			// Create a message buffer and clear it.
+			char msgBuffer[120];
+			for(uint16_t i = 0; i < 120; i++){
+				msgBuffer[i] = ' ';
+			}
+
+			// Send the data through UART.
+			sprintf(msgBuffer,
+					"Temperature(deg C): %.2f, Pressure(Pa): %.2f, Humidity(%%): %.2f, IAQ: %.1f ,Gas resistance(ohm): %.2f\r\n",
+					data.temperature, data.pressure, data.humidity,
+					data.iaq_score, data.gas_resistance);
+
+			debug_str(msgBuffer);
+			//HAL_USART_Transmit(&husart2, (uint8_t *) msgBuffer, sizeof(msgBuffer), 10);
+
+		}
+
+	//float temperature_sensor_value = GET_temperature(value, 3300);
+	//debug_valfloat("Temperature sensor value = ", temperature_sensor_value, 6);//6 doit etre le nbr de chiffres après la ,
+	//On éteint le capteur
+	HAL_GPIO_WritePin(Alim_temp_GPIO_Port, Alim_temp_Pin, GPIO_PIN_RESET);
+	return data.temperature;
+}
+
 float readtemperaturesensor(){
 	//Il faut alimenter le capteur
 
@@ -161,7 +201,7 @@ static void reportfunc (osjob_t* j) {
 
 	// read sensor
 	debug_str("Read Temperature Sensor\n");
-	float valuereport = readtemperaturesensor();
+	float valuereport = readBoschsensor();//readtemperaturesensor();
 	debug_valfloat("val = ", valuereport, 6);
 	// prepare and schedule data for transmission
 	cayenne_lpp_reset(&lpp);
@@ -177,7 +217,7 @@ static void reportfunc (osjob_t* j) {
 	LMIC_setTxData2(1, LMIC.frame, 2, 0);*/
 	// (port 1, 2 bytes, unconfirmed)
 	// reschedule job in 60 seconds
-	os_setTimedCallback(j, os_getTime()+sec2osticks(2), reportfunc);
+	os_setTimedCallback(j, os_getTime()+sec2osticks(15), reportfunc);
 }
 
 
@@ -312,7 +352,8 @@ int main(void)
   MX_ADC1_Init();
   MX_SPI3_Init();
   MX_TIM7_Init();
-  MX_USART1_UART_Init();
+  MX_I2C1_Init();
+  MX_USART2_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim7);   // <----------- change to your setup
   __HAL_SPI_ENABLE(&hspi3);        // <----------- change to your setup
@@ -326,6 +367,15 @@ int main(void)
   os_setCallback(&initjob, initfunc);//Pour tester le capteur de temp on rajoute
   //os_setCallback(&reportjob, reportfunc);
   // execute scheduled jobs and events
+
+  /*TEST DE L'UART
+   *
+   * char * msgBuffer = "Coucou les loulous";
+  HAL_Delay(100);
+  HAL_USART_Transmit(&husart2, (uint8_t *) msgBuffer, sizeof(msgBuffer), 10);*/
+
+  debug_str("Coucou les loulous");
+
   os_runloop();
   // (not reached)
   return 0;
