@@ -34,7 +34,7 @@
 I2C_HandleTypeDef BME68x_I2C_Handler; // I2C peripheral for the device.
 
 // BME68x device address:
-uint8_t dev_addr = BME68X_I2C_ADDR_HIGH; // High is 0x77 and low is 0x76
+uint8_t dev_addr = BME68X_I2C_ADDR_LOW; // High is 0x77 and low is 0x76 TODO Modified, thank you Antoine Chassaigne
 
 // BME68x Variables
 struct bme68x_dev bme;
@@ -96,7 +96,8 @@ int8_t bme68x_single_measure(struct bme68x_data *dataPtr) {
 	/* Calculate delay period in microseconds */
 	del_period = bme68x_get_meas_dur(BME68X_FORCED_MODE, &conf, &bme)
 			+ (heatr_conf.heatr_dur * 1000);
-	bme.delay_us(del_period, bme.intf_ptr);
+	//bme.delay_us(del_period, bme.intf_ptr);
+	HAL_Delay(del_period/1000);
 
 	/* Check if rslt == BME68X_OK, report or handle if otherwise */
 	rslt = bme68x_get_data(BME68X_FORCED_MODE, dataPtr, &n_fields, &bme);

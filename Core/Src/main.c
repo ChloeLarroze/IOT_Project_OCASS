@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "adc.h"
 #include "i2c.h"
 #include "spi.h"
 #include "tim.h"
@@ -98,8 +97,8 @@ void os_getDevKey (u1_t* buf) {
 }
 void initsensor(){
 // Here you init your sensors
-	HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
-	bme68x_start(&data, &hi2c1);//On start le bosch sensor
+	//HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+	bme68x_start(&data, &hi2c1);//On start le bosch sensor TODO
 }
 
 void initfunc (osjob_t* j) {
@@ -112,7 +111,7 @@ void initfunc (osjob_t* j) {
 	// init done - onEvent() callback will be invoked...
 }
 
-uint32_t get_ADC_value(ADC_HandleTypeDef hadc1, uint32_t channel)
+/*uint32_t get_ADC_value(ADC_HandleTypeDef hadc1, uint32_t channel)
 {
 	uint32_t adc_val = 0;
 	HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
@@ -120,7 +119,7 @@ uint32_t get_ADC_value(ADC_HandleTypeDef hadc1, uint32_t channel)
 	HAL_ADC_PollForConversion(&hadc1, 100);
 	adc_val = HAL_ADC_GetValue(&hadc1);
 	return adc_val;
-}
+}*/
 float GET_temperature(uint32_t ADC_value, double VDD){
 	float TEMP_value = 0.0;
 	float voltage = 0.0;
@@ -138,8 +137,6 @@ float GET_temperature(uint32_t ADC_value, double VDD){
 float readBoschsensor(){
 	//Il faut alimenter le capteur
 
-	HAL_GPIO_WritePin(Alim_temp_GPIO_Port, Alim_temp_Pin, GPIO_PIN_SET);
-	HAL_Delay(100);
 
 	if (bme68x_single_measure(&data) == 0) {
 
@@ -166,11 +163,10 @@ float readBoschsensor(){
 	//float temperature_sensor_value = GET_temperature(value, 3300);
 	//debug_valfloat("Temperature sensor value = ", temperature_sensor_value, 6);//6 doit etre le nbr de chiffres après la ,
 	//On éteint le capteur
-	HAL_GPIO_WritePin(Alim_temp_GPIO_Port, Alim_temp_Pin, GPIO_PIN_RESET);
 	return data.temperature;
 }
 
-float readtemperaturesensor(){
+/*float readtemperaturesensor(){
 	//Il faut alimenter le capteur
 
 	HAL_GPIO_WritePin(Alim_temp_GPIO_Port, Alim_temp_Pin, GPIO_PIN_SET);
@@ -186,7 +182,7 @@ float readtemperaturesensor(){
 	//On éteint le capteur
 	HAL_GPIO_WritePin(Alim_temp_GPIO_Port, Alim_temp_Pin, GPIO_PIN_RESET);
 	return temperature_sensor_value;
-}
+}*/
 
 
 u2_t readsensor(){
@@ -349,11 +345,10 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_ADC1_Init();
   MX_SPI3_Init();
   MX_TIM7_Init();
   MX_I2C1_Init();
-  MX_USART2_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim7);   // <----------- change to your setup
   __HAL_SPI_ENABLE(&hspi3);        // <----------- change to your setup

@@ -31,7 +31,7 @@
 #include "usart.h" //  <--------- to add
 
 
-#define myUART husart2   //  <--------- change to your setup huart2 when using bosch sensor
+#define myUART huart2   //  <--------- change to your setup huart2 when using bosch sensor
 
 /*  ************************************** */
 /*    DO NOT CHANGE BELOW THIS LINE        */
@@ -48,13 +48,13 @@ void debug_init () {
 }
 
 void debug_led (int val) {
-    HAL_GPIO_WritePin(LED_GPIO_Port,LED_Pin,val);
+    //HAL_GPIO_WritePin(LED_GPIO_Port,LED_Pin,val);
 }
 
 void debug_char (char c) {
   char buffer[] = "";
   buffer[0]= c;
-  HAL_USART_Transmit(&myUART,buffer,sizeof(buffer),HAL_MAX_DELAY);
+  HAL_UART_Transmit(&myUART,buffer,sizeof(buffer),HAL_MAX_DELAY);
 }
 
 void debug_hex (u1_t b) {
