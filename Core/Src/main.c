@@ -208,11 +208,11 @@ static void reportfunc (osjob_t* j) {
 	debug_valfloat("val = ", valuereport, 6);
 	// prepare and schedule data for transmission
 	cayenne_lpp_reset(&lpp);
-	cayenne_lpp_add_temperature(&lpp, 0, data.iaq_score);//data.temperature);
-	//cayenne_lpp_add_temperature(&lpp, 0, data.temperature);
+	cayenne_lpp_add_barometric_pressure(&lpp, 0, data.pressure);//data.temperature);
+	cayenne_lpp_add_temperature(&lpp, 0, data.temperature);
 	//cayenne_lpp_add_temperature(&lpp, 0, data.iaq_score);
 
-	LMIC_setTxData2(1, &lpp, 4, 0);
+	LMIC_setTxData2(1, &lpp, 8, 0);
 
 	/*LMIC.frame[0] = 0;//val << 8;//pas dans le mm sens que sur le diapo
 	LMIC.frame[1] = 0x67;//val;
@@ -296,9 +296,10 @@ void onEvent (ev_t ev) {
 				debug_str("Received ack\r\n");
 			if (LMIC.dataLen) {
 				debug_str("Received ");
-				debug_str(LMIC.dataLen);
-				debug_str(" bytes of payload\r\n");
-				debug_str("VOUS AVEZ UN MESSAGE DE TTN\r\n");
+				debug_valdec("Received bytes of payload\r\n", LMIC.dataLen);
+				debug_val("Data =", LMIC.frame[LMIC.dataBeg]);
+				debug_str("VOUS AVEZ UN MESSAGE DE TTN------------------------------------------------------------------------\r\n");
+				debug_led(LMIC.frame[LMIC.dataBeg]);
 			}
 			break;
 		case EV_LOST_TSYNC:

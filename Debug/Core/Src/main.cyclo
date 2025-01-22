@@ -10,6 +10,6 @@
 ../Core/Src/main.c:232:13:hellofunc	1
 ../Core/Src/main.c:245:13:blinkfunc	1
 ../Core/Src/main.c:257:6:onEvent	18
-../Core/Src/main.c:333:5:main	1
-../Core/Src/main.c:404:6:SystemClock_Config	4
-../Core/Src/main.c:457:6:Error_Handler	1
+../Core/Src/main.c:334:5:main	1
+../Core/Src/main.c:405:6:SystemClock_Config	4
+../Core/Src/main.c:458:6:Error_Handler	1
