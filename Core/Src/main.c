@@ -150,19 +150,26 @@ float readBoschsensor(){
 			}
 
 			// Send the data through UART.
-			sprintf(msgBuffer,
-					"Temperature(deg C): %.2f, Pressure(Pa): %.2f, Humidity(%%): %.2f, IAQ: %.1f ,Gas resistance(ohm): %.2f\r\n",
+			/*sprintf(msgBuffer,
+					"Temperature(deg C): %f, Pressure(Pa): %f, Humidity(%%): %f, IAQ: %f ,Gas resistance(ohm): %f\r\n",
 					data.temperature, data.pressure, data.humidity,
 					data.iaq_score, data.gas_resistance);
-
-			debug_str(msgBuffer);
+			*/
+			debug_str("Temperature(deg C): ");
+			debug_float2str(data.temperature, 5);
+			debug_str("\r\nPressure(Pa):");
+			debug_float2str(data.pressure, 8);
+			debug_str("\r\nHumidity(%%):");
+			debug_float2str(data.humidity, 8);
+			debug_str("\r\nIAQ:");
+			debug_float2str(data.iaq_score, 4);
+			debug_str("\r\nGas resistance (Ohm):");
+			debug_float2str(data.gas_resistance, 8);
+			debug_str("\r\n");
 			//HAL_USART_Transmit(&husart2, (uint8_t *) msgBuffer, sizeof(msgBuffer), 10);
 
 		}
 
-	//float temperature_sensor_value = GET_temperature(value, 3300);
-	//debug_valfloat("Temperature sensor value = ", temperature_sensor_value, 6);//6 doit etre le nbr de chiffres après la ,
-	//On éteint le capteur
 	return data.temperature;
 }
 
@@ -196,12 +203,14 @@ static void reportfunc (osjob_t* j) {
 	cayenne_lpp_t lpp = {0};
 
 	// read sensor
-	debug_str("Read Temperature Sensor\n");
+	debug_str("\nRead Bosch Sensor\r\n");
 	float valuereport = readBoschsensor();//readtemperaturesensor();
 	debug_valfloat("val = ", valuereport, 6);
 	// prepare and schedule data for transmission
 	cayenne_lpp_reset(&lpp);
-	cayenne_lpp_add_temperature(&lpp, 0, valuereport);
+	cayenne_lpp_add_temperature(&lpp, 0, data.iaq_score);//data.temperature);
+	//cayenne_lpp_add_temperature(&lpp, 0, data.temperature);
+	//cayenne_lpp_add_temperature(&lpp, 0, data.iaq_score);
 
 	LMIC_setTxData2(1, &lpp, 4, 0);
 
@@ -213,7 +222,7 @@ static void reportfunc (osjob_t* j) {
 	LMIC_setTxData2(1, LMIC.frame, 2, 0);*/
 	// (port 1, 2 bytes, unconfirmed)
 	// reschedule job in 60 seconds
-	os_setTimedCallback(j, os_getTime()+sec2osticks(15), reportfunc);
+	os_setTimedCallback(j, os_getTime()+sec2osticks(15), reportfunc);//TODO reactivate
 }
 
 
@@ -289,6 +298,7 @@ void onEvent (ev_t ev) {
 				debug_str("Received ");
 				debug_str(LMIC.dataLen);
 				debug_str(" bytes of payload\r\n");
+				debug_str("VOUS AVEZ UN MESSAGE DE TTN\r\n");
 			}
 			break;
 		case EV_LOST_TSYNC:
