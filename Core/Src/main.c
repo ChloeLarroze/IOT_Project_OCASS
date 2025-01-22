@@ -134,7 +134,7 @@ float GET_temperature(uint32_t ADC_value, double VDD){
 	return TEMP_value;
 }
 
-float readBoschsensor(){
+void readBoschsensor(){
 	//Il faut alimenter le capteur
 
 
@@ -204,15 +204,17 @@ static void reportfunc (osjob_t* j) {
 
 	// read sensor
 	debug_str("\nRead Bosch Sensor\r\n");
-	float valuereport = readBoschsensor();//readtemperaturesensor();
-	debug_valfloat("val = ", valuereport, 6);
+	readBoschsensor();//readtemperaturesensor();
+	//debug_valfloat("val = ", valuereport, 6);
 	// prepare and schedule data for transmission
 	cayenne_lpp_reset(&lpp);
-	cayenne_lpp_add_barometric_pressure(&lpp, 0, data.pressure);//data.temperature);
+	cayenne_lpp_add_barometric_pressure(&lpp, 0, data.pressure);//Pressure is the difference with 1 hPa and is modified at new on Datacake
+	cayenne_lpp_add_analog_input(&lpp, 0, data.iaq_score);
 	cayenne_lpp_add_temperature(&lpp, 0, data.temperature);
+	//cayenne_lpp_add_relative_humidity(&lpp, 0, data.temperature);
 	//cayenne_lpp_add_temperature(&lpp, 0, data.iaq_score);
 
-	LMIC_setTxData2(1, &lpp, 8, 0);
+	LMIC_setTxData2(1, &lpp, 3*4, 0);
 
 	/*LMIC.frame[0] = 0;//val << 8;//pas dans le mm sens que sur le diapo
 	LMIC.frame[1] = 0x67;//val;
@@ -380,7 +382,7 @@ int main(void)
   HAL_Delay(100);
   HAL_USART_Transmit(&husart2, (uint8_t *) msgBuffer, sizeof(msgBuffer), 10);*/
 
-  debug_str("Coucou les loulous");
+  debug_str("Coucou les loulous, c'est le début de votre aventure sur OCASS !\r\n");
 
   os_runloop();
   // (not reached)

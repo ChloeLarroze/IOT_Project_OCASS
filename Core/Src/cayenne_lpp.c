@@ -136,7 +136,7 @@ void cayenne_lpp_add_barometric_pressure(cayenne_lpp_t *lpp, uint8_t channel,
 {
     assert((lpp->cursor + CAYENNE_LPP_BAROMETRIC_PRESSURE_SIZE) < CAYENNE_LPP_MAX_BUFFER_SIZE);
 
-    int16_t val = hpa * 10;
+    int16_t val = (hpa - 100000)*10;//was *10
     lpp->buffer[lpp->cursor++] = channel;
     lpp->buffer[lpp->cursor++] = CAYENNE_LPP_BAROMETRIC_PRESSURE;
     lpp->buffer[lpp->cursor++] = val >> 8;
