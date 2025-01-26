@@ -57,6 +57,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define PWM_FAN_Pin GPIO_PIN_5
+#define PWM_FAN_GPIO_Port GPIOA
 #define RST_Pin GPIO_PIN_11
 #define RST_GPIO_Port GPIOA
 #define NSS_Pin GPIO_PIN_15

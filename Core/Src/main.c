@@ -26,6 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stdbool.h"
 #include "debug.h"
 #include "hal.h"
 #include "lmic.h"
@@ -44,7 +45,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define max_speed_counter_value 160000
+#define minMotorSpeedPercentage 60
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -69,6 +71,13 @@ static const u1_t DEVEUI[8] = {0xAC, 0xCE, 0x06, 0xD0, 0x7E, 0xD5, 0xB3, 0x70};
 static const u1_t DEVKEY[16] = {0x4D, 0x55, 0xCE, 0x1B, 0x4D, 0x7F, 0x01, 0x3B, 0x8A, 0x98, 0x6F, 0xDB, 0x04, 0x24, 0x8D, 0xD1};
 //old { 0x25, 0x00, 0x7B, 0x76, 0x3D, 0x5C, 0xD4, 0x28, 0x3D, 0xA6, 0x0B, 0x9A, 0xDA, 0x61, 0x48, 0x7E };//IMPORT FROM TTN
 struct bme68x_data data;
+
+int manual_fan_power = 0;
+int manual_fan_value = 0;
+int autonomous_fan_value = 0;
+int autonomous_fan_power = 0;
+
+bool manual_fan_mode = false;
 
 
 //APPEUI,DEVEUI must be copied from thethingsnetwork application datas in LSB format
@@ -101,9 +110,60 @@ void initsensor(){
 	bme68x_start(&data, &hi2c1);//On start le bosch sensor TODO
 }
 
+int valueToSpeed(int value, int minSpeedPercentage)
+{
+		float minSpeed = max_speed_counter_value * (minSpeedPercentage / 100.0f);
+		int speed = value * (max_speed_counter_value -minSpeed) / 100 + minSpeed;
+		debug_int(speed);
+		return speed;
+}
+
+int IAQtoSpeed(int minIAQ, int maxIAQ, int minSpeedPercentage)//with minSpeed goinf
+{
+	int IAQ = data.iaq_score;
+	if(IAQ < minIAQ)
+	{
+		return 0;
+	}
+	else if(IAQ > maxIAQ)
+	{
+		return max_speed_counter_value;
+	}
+	else
+	{
+		float percent = (IAQ - minIAQ) * 100.0f / (maxIAQ - minIAQ);
+		autonomous_fan_power = percent;
+		/*float minSpeed = max_speed_counter_value * (minSpeedPercentage / 100.0f);
+		int speed = percent * (max_speed_counter_value -minSpeed) / 100 + minSpeed;
+		debug_int(speed);*/
+		//return speed;
+		return valueToSpeed(percent, minSpeedPercentage);
+	}
+}
+
+
+void update_fan_speed()
+{
+	if(manual_fan_mode)
+	{
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1, manual_fan_value);
+
+	}
+	else
+	{
+		//autonomous_fan_value = max_speed_counter_value;
+		//__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1, autonomous_fan_power*max_speed_counter_value/100);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1, autonomous_fan_value);
+
+	}
+}
+
 void initfunc (osjob_t* j) {
 	// intialize sensor hardware
 	initsensor();
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+	__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1, 0);
+	update_fan_speed();
 	// reset MAC state
 	LMIC_reset();
 	// start joining
@@ -191,7 +251,6 @@ void readBoschsensor(){
 	return temperature_sensor_value;
 }*/
 
-
 u2_t readsensor(){
 	u2_t value = 0xDF; /// read from evrything ...make your own sensor
 	return value;
@@ -211,6 +270,10 @@ static void reportfunc (osjob_t* j) {
 	cayenne_lpp_add_barometric_pressure(&lpp, 0, data.pressure);//Pressure is the difference with 1 hPa and is modified at new on Datacake
 	cayenne_lpp_add_analog_input(&lpp, 0, data.iaq_score);
 	cayenne_lpp_add_temperature(&lpp, 0, data.temperature);
+
+	autonomous_fan_value = IAQtoSpeed(30, 300, minMotorSpeedPercentage);//The motor start at  44% from 9V
+	//debug_int(autonomous_fan_power);
+	update_fan_speed();
 	//cayenne_lpp_add_relative_humidity(&lpp, 0, data.temperature);
 	//cayenne_lpp_add_temperature(&lpp, 0, data.iaq_score);
 
@@ -298,10 +361,21 @@ void onEvent (ev_t ev) {
 				debug_str("Received ack\r\n");
 			if (LMIC.dataLen) {
 				debug_str("Received ");
-				debug_valdec("Received bytes of payload\r\n", LMIC.dataLen);
-				debug_val("Data =", LMIC.frame[LMIC.dataBeg]);
+				debug_valdec("Received bytes of payload : %d\r\n", LMIC.dataLen);
+				debug_val("Data[0] =", LMIC.frame[LMIC.dataBeg]);
+				debug_val("Data[max] =", LMIC.frame[LMIC.dataBeg+3]);
 				debug_str("VOUS AVEZ UN MESSAGE DE TTN------------------------------------------------------------------------\r\n");
-				debug_led(LMIC.frame[LMIC.dataBeg]);
+
+				manual_fan_power = LMIC.frame[LMIC.dataBeg] & ~(1 << 7);
+				manual_fan_value = valueToSpeed(manual_fan_power, minMotorSpeedPercentage);
+				manual_fan_mode = ((LMIC.frame[LMIC.dataBeg] >> 7) & 1) == 1 ? false : true;//C'est inversé, en effet l'utilisateur choisit "Autonomous Mode" donc 1 signifie que manual mode est désactivé
+				debug_str("fan power et manual mode :\r\n");
+				debug_int(manual_fan_power);
+				debug_str(" ");
+				debug_int(manual_fan_mode);
+
+				update_fan_speed();
+				//debug_led(LMIC.frame[LMIC.dataBeg]);
 			}
 			break;
 		case EV_LOST_TSYNC:
@@ -362,6 +436,7 @@ int main(void)
   MX_TIM7_Init();
   MX_I2C1_Init();
   MX_USART2_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim7);   // <----------- change to your setup
   __HAL_SPI_ENABLE(&hspi3);        // <----------- change to your setup
