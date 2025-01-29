@@ -76,6 +76,8 @@ int manual_fan_power = 0;
 int manual_fan_value = 0;
 int autonomous_fan_value = 0;
 int autonomous_fan_power = 0;
+int delay_between_transmission = 15;
+int minIAQvalue = 50, maxIAQvalue = 300;
 
 bool manual_fan_mode = false;
 
@@ -268,16 +270,17 @@ static void reportfunc (osjob_t* j) {
 	// prepare and schedule data for transmission
 	cayenne_lpp_reset(&lpp);
 	cayenne_lpp_add_barometric_pressure(&lpp, 0, data.pressure);//Pressure is the difference with 1 hPa and is modified at new on Datacake
-	cayenne_lpp_add_analog_input(&lpp, 0, data.iaq_score);
+	cayenne_lpp_add_luminosity(&lpp, 0, data.iaq_score);//was in analog output
 	cayenne_lpp_add_temperature(&lpp, 0, data.temperature);
+	cayenne_lpp_add_analog_output(&lpp, 0, data.humidity);
 
-	autonomous_fan_value = IAQtoSpeed(30, 300, minMotorSpeedPercentage);//The motor start at  44% from 9V
+	autonomous_fan_value = IAQtoSpeed(minIAQvalue, maxIAQvalue, minMotorSpeedPercentage);//The motor start at  44% from 9V
 	//debug_int(autonomous_fan_power);
 	update_fan_speed();
 	//cayenne_lpp_add_relative_humidity(&lpp, 0, data.temperature);
 	//cayenne_lpp_add_temperature(&lpp, 0, data.iaq_score);
 
-	LMIC_setTxData2(1, &lpp, 3*4, 0);
+	LMIC_setTxData2(1, &lpp, 4*4, 0);
 
 	/*LMIC.frame[0] = 0;//val << 8;//pas dans le mm sens que sur le diapo
 	LMIC.frame[1] = 0x67;//val;
@@ -287,7 +290,7 @@ static void reportfunc (osjob_t* j) {
 	LMIC_setTxData2(1, LMIC.frame, 2, 0);*/
 	// (port 1, 2 bytes, unconfirmed)
 	// reschedule job in 60 seconds
-	os_setTimedCallback(j, os_getTime()+sec2osticks(15), reportfunc);//TODO reactivate
+	os_setTimedCallback(j, os_getTime()+sec2osticks(delay_between_transmission), reportfunc);//TODO reactivate
 }
 
 
@@ -366,15 +369,25 @@ void onEvent (ev_t ev) {
 				debug_val("Data[max] =", LMIC.frame[LMIC.dataBeg+3]);
 				debug_str("VOUS AVEZ UN MESSAGE DE TTN------------------------------------------------------------------------\r\n");
 
-				manual_fan_power = LMIC.frame[LMIC.dataBeg] & ~(1 << 7);
-				manual_fan_value = valueToSpeed(manual_fan_power, minMotorSpeedPercentage);
-				manual_fan_mode = ((LMIC.frame[LMIC.dataBeg] >> 7) & 1) == 1 ? false : true;//C'est inversé, en effet l'utilisateur choisit "Autonomous Mode" donc 1 signifie que manual mode est désactivé
-				debug_str("fan power et manual mode :\r\n");
-				debug_int(manual_fan_power);
-				debug_str(" ");
-				debug_int(manual_fan_mode);
+				if(LMIC.frame[LMIC.dataBeg] == 0xFF)
+				{
+					delay_between_transmission = LMIC.frame[LMIC.dataBeg + 1];
+					minIAQvalue = 5*LMIC.frame[LMIC.dataBeg + 2];//We multiply by 5 to have a 0 to 500 range during the transmission
+					maxIAQvalue = 5*LMIC.frame[LMIC.dataBeg + 3];
+				}
+				else
+				{
+					manual_fan_power = LMIC.frame[LMIC.dataBeg] & ~(1 << 7);
+					manual_fan_value = valueToSpeed(manual_fan_power, minMotorSpeedPercentage);
+					manual_fan_mode = ((LMIC.frame[LMIC.dataBeg] >> 7) & 1) == 1 ? false : true;//C'est inversé, en effet l'utilisateur choisit "Autonomous Mode" donc 1 signifie que manual mode est désactivé
+					debug_str("fan power et manual mode :\r\n");
+					debug_int(manual_fan_power);
+					debug_str(" ");
+					debug_int(manual_fan_mode);
 
-				update_fan_speed();
+					update_fan_speed();
+				}
+
 				//debug_led(LMIC.frame[LMIC.dataBeg]);
 			}
 			break;
